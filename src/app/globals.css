@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-urdu: var(--font-nastaliq), "Noto Nastaliq Urdu", serif;
+}
+
+.font-urdu {
+  font-family: var(--font-nastaliq), serif;
+  line-height: 2;
+}
