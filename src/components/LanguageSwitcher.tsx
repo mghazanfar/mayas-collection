@@ -12,7 +12,7 @@ const OPTIONS: { lang: Lang; label: string; highlight?: boolean }[] = [
 
 export default function LanguageSwitcher({ current, hint }: { current: Lang; hint: string }) {
   const pathname = usePathname() || "/";
-  const rest = pathname.replace(/^\/(roman|ur)(?=\/|$)/, "") || "/";
+  const rest = pathname.replace(/^\/(en|roman|ur)(?=\/|$)/, "") || "/";
 
   return (
     <div className="flex items-center gap-1.5" aria-label="Language">

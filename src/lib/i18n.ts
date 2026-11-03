@@ -6,8 +6,10 @@ export function isLang(v: string): v is Lang {
 }
 
 // English lives at the root (no prefix); the others get /roman and /ur.
-export function href(lang: Lang, path: string): string {
-  const p = path === "/" ? "" : path;
+// `demo` puts the page under /demo (the noindex sample catalog).
+export function href(lang: Lang, path: string, demo = false): string {
+  const tail = path === "/" ? "" : path;
+  const p = demo ? `/demo${tail}` : tail;
   return lang === "en" ? p || "/" : `/${lang}${p}`;
 }
 
@@ -31,6 +33,10 @@ type Dict = {
   outOfStock: string;
   langHint: string;
   noProducts: string;
+  liveEmpty: string;
+  viewDemo: string;
+  demoBanner: string;
+  backToLive: string;
 };
 
 export const t: Record<Lang, Dict> = {
@@ -51,6 +57,10 @@ export const t: Record<Lang, Dict> = {
     outOfStock: "Out of stock",
     langHint: "Read in Roman Urdu",
     noProducts: "No products yet.",
+    liveEmpty: "The live shop has no products yet.",
+    viewDemo: "View demo data",
+    demoBanner: "Demo data: nothing here is real.",
+    backToLive: "Back to live shop",
   },
   roman: {
     brands: "Brands",
@@ -69,6 +79,10 @@ export const t: Record<Lang, Dict> = {
     outOfStock: "Stock mein nahi",
     langHint: "Roman Urdu mein parhein",
     noProducts: "Abhi koi product nahi.",
+    liveEmpty: "Live shop mein abhi koi product nahi.",
+    viewDemo: "Demo data dekhein",
+    demoBanner: "Demo data: yahan kuch asli nahi.",
+    backToLive: "Live shop par wapas",
   },
   ur: {
     brands: "برانڈز",
@@ -87,5 +101,9 @@ export const t: Record<Lang, Dict> = {
     outOfStock: "اسٹاک میں نہیں",
     langHint: "اردو میں پڑھیں",
     noProducts: "ابھی کوئی پروڈکٹ نہیں۔",
+    liveEmpty: "لائیو شاپ میں ابھی کوئی پروڈکٹ نہیں۔",
+    viewDemo: "ڈیمو ڈیٹا دیکھیں",
+    demoBanner: "ڈیمو ڈیٹا: یہاں کچھ اصلی نہیں۔",
+    backToLive: "لائیو شاپ پر واپس",
   },
 };

@@ -4,10 +4,10 @@ import { href, t, type Lang } from "@/lib/i18n";
 import { pkr } from "@/lib/site";
 import type { Product } from "@/lib/catalog";
 
-export default function ProductCard({ product, lang }: { product: Product; lang: Lang }) {
+export default function ProductCard({ product, lang, demo = false }: { product: Product; lang: Lang; demo?: boolean }) {
   const img = product.images[0];
   return (
-    <Link href={href(lang, `/products/${product.slug}`)} className="group block">
+    <Link href={href(lang, `/products/${product.slug}`, demo)} className="group block">
       <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-gradient-to-br from-rose-100 to-amber-50">
         {img && (
           <Image
