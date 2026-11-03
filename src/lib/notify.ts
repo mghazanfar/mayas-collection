@@ -64,3 +64,8 @@ export async function notifyNewOrder(o: OrderSummary, ownerEmail: string, ownerW
     sendWhatsApp(o.customerPhone, o),
   ]);
 }
+
+// Plain alert to the owner only (e.g. a payment that needs a manual check).
+export async function notifyOwnerText(ownerEmail: string, subject: string, text: string) {
+  if (ownerEmail) await sendEmail(ownerEmail, subject, text);
+}

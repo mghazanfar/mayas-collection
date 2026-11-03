@@ -279,7 +279,7 @@ export async function importSample(_prev: Result, _fd: FormData): Promise<Result
 /* ---------- orders & returns ---------- */
 
 const ORDER_STATUS = ["pending", "paid", "packed", "shipped", "delivered", "cancelled", "returned"];
-const PAYMENT_STATUS = ["unpaid", "paid", "refunded"];
+const PAYMENT_STATUS = ["unpaid", "awaiting_payment", "review", "failed", "paid", "refunded"];
 
 export async function updateOrder(_prev: Result, fd: FormData): Promise<Result> {
   await requireAdmin();

@@ -53,7 +53,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
               <select name="status" defaultValue={o.status} className={input}>{["pending", "paid", "packed", "shipped", "delivered", "cancelled", "returned"].map((s) => <option key={s}>{s}</option>)}</select>
             </label>
             <label className="text-sm">Payment
-              <select name="payment_status" defaultValue={o.payment_status} className={input}>{["unpaid", "paid", "refunded"].map((s) => <option key={s}>{s}</option>)}</select>
+              <select name="payment_status" defaultValue={o.payment_status} className={input}>{["unpaid", "awaiting_payment", "review", "failed", "paid", "refunded"].map((s) => <option key={s}>{s}</option>)}</select>
             </label>
             <label className="text-sm">Tracking number<input name="tracking_no" defaultValue={o.tracking_no ?? ""} className={input} /></label>
             <label className="text-sm">What the courier actually charged us (PKR)<input name="shipping_cost" type="number" min={0} defaultValue={o.shipping_cost ?? ""} className={input} /></label>

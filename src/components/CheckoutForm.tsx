@@ -3,19 +3,39 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { getQuote, placeOrder, type PlaceResult, type Quote } from "@/app/actions/shop";
+import type { StartResult } from "@/lib/payments/types";
 import { useCart } from "@/lib/cart";
 import { href, type Lang } from "@/lib/i18n";
 import { ts } from "@/lib/i18n-shop";
-import { COUNTRIES, orderTotals, type PaymentMethod } from "@/lib/shipping";
+import { COUNTRIES, isOnline, orderTotals, type PaymentMethod } from "@/lib/shipping";
 import { pkr } from "@/lib/site";
 
 const input = "mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm";
 const PAY_LABEL: Record<PaymentMethod, string> = {
   cod: "Cash on delivery (Pakistan only)",
   bank_transfer: "Bank transfer (we send details after you order)",
-  card: "Card / JazzCash / EasyPaisa (coming soon)",
+  safepay: "Credit / debit card (Visa, Mastercard) via Safepay, works with cards from abroad",
+  jazzcash: "JazzCash (wallet or card)",
+  easypaisa: "Easypaisa (wallet or card)",
 };
 const CITIES = ["Lahore", "Karachi", "Islamabad", "Rawalpindi", "Faisalabad", "Multan", "Peshawar", "Quetta", "Sialkot", "Gujranwala", "Hyderabad", "Bahawalpur"];
+
+// Sends the browser to the gateway: a plain link, or a form the gateway expects as an HTTP POST.
+function goToGateway(go: StartResult) {
+  if (go.kind === "redirect") return window.location.assign(go.url);
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = go.url;
+  for (const [k, v] of Object.entries(go.fields)) {
+    const i = document.createElement("input");
+    i.type = "hidden";
+    i.name = k;
+    i.value = v;
+    form.appendChild(i);
+  }
+  document.body.appendChild(form);
+  form.submit();
+}
 
 export default function CheckoutForm({ lang }: { lang: Lang }) {
   const d = ts[lang];
@@ -50,7 +70,7 @@ export default function CheckoutForm({ lang }: { lang: Lang }) {
       setQuoting(false);
       if (!("error" in q)) {
         setCourier((c) => (q.options.some((o) => o.courier === c) ? c : (q.options[0]?.courier ?? "")));
-        setPayment((p) => (p && q.payments.includes(p) ? p : (q.payments.find((x) => x !== "card") ?? "")));
+        setPayment((p) => (p && q.payments.includes(p) ? p : (q.payments.find((x) => !isOnline(x)) ?? "")));
       }
     }, 400);
     return () => clearTimeout(t);
@@ -66,8 +86,9 @@ export default function CheckoutForm({ lang }: { lang: Lang }) {
     setError("");
     if (!opt || !payment) return setError("Please choose a delivery and payment option.");
     start(async () => {
-      const res = await placeOrder({ items, ...f, courier, payment });
+      const res = await placeOrder({ items, ...f, courier, payment, lang });
       if (!res.ok) return setError(res.error);
+      if (res.pay) return goToGateway(res.pay); // cart stays until payment is confirmed
       if (!res.demo) cart.clear();
       setDone(res);
     });
@@ -159,9 +180,10 @@ export default function CheckoutForm({ lang }: { lang: Lang }) {
             <ul className="space-y-2">
               {q.payments.map((m) => (
                 <li key={m}>
-                  <label className={`flex items-center gap-3 rounded border p-3 text-sm ${m === "card" ? "cursor-not-allowed opacity-50" : "cursor-pointer"} ${payment === m ? "border-neutral-900" : "border-neutral-300"}`}>
-                    <input type="radio" name="payment" disabled={m === "card"} checked={payment === m} onChange={() => setPayment(m)} />
+                  <label className={`flex cursor-pointer items-center gap-3 rounded border p-3 text-sm ${payment === m ? "border-neutral-900" : "border-neutral-300"}`}>
+                    <input type="radio" name="payment" checked={payment === m} onChange={() => setPayment(m)} />
                     {PAY_LABEL[m]}
+                    {isOnline(m) && q.fees.gateway_fee_pct > 0 && <span className="ms-auto text-neutral-500">+ {q.fees.gateway_fee_pct}% fee</span>}
                     {m === "cod" && q.fees.cod_fee > 0 && <span className="ms-auto text-neutral-500">+ {pkr(q.fees.cod_fee)}</span>}
                   </label>
                 </li>
@@ -183,12 +205,13 @@ export default function CheckoutForm({ lang }: { lang: Lang }) {
         </ul>
         <p className="flex justify-between"><span>{d.subtotal}</span><span>{pkr(cart.subtotal)}</span></p>
         <p className="flex justify-between"><span>Delivery</span><span>{opt ? pkr(opt.fee) : "–"}</span></p>
+        {totals && totals.gatewayFee > 0 && <p className="flex justify-between"><span>Online payment fee</span><span>{pkr(totals.gatewayFee)}</span></p>}
         {totals && totals.codFee > 0 && <p className="flex justify-between"><span>Cash on delivery fee</span><span>{pkr(totals.codFee)}</span></p>}
         <p className="flex justify-between border-t border-neutral-200 pt-3 text-base font-semibold"><span>Total</span><span>{totals ? pkr(totals.total) : "–"}</span></p>
         {q?.demo && <p className="rounded bg-amber-50 p-2 text-xs text-amber-900">{d.demoOrderNote}</p>}
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={pending || !totals} className="w-full rounded bg-neutral-900 py-3 font-semibold uppercase text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:bg-neutral-300">
-          {pending ? "…" : "Place order"}
+          {pending ? "…" : payment && isOnline(payment) ? "Pay now" : "Place order"}
         </button>
         <p className="text-xs text-neutral-500">By ordering you agree to our <Link href={href(lang, "/policies/terms")} className="underline">terms</Link> and <Link href={href(lang, "/policies/returns")} className="underline">return policy</Link>.</p>
       </aside>

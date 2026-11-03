@@ -27,7 +27,10 @@ export type FeeSettings = {
   gateway_fee_pct: number;
 };
 
-export type PaymentMethod = "cod" | "bank_transfer" | "card";
+export type OnlineMethod = "safepay" | "jazzcash" | "easypaisa";
+export type PaymentMethod = "cod" | "bank_transfer" | OnlineMethod;
+export const ONLINE_METHODS: readonly OnlineMethod[] = ["safepay", "jazzcash", "easypaisa"];
+export const isOnline = (m: string): m is OnlineMethod => (ONLINE_METHODS as readonly string[]).includes(m);
 
 export type ShippingOption = {
   courier: Courier;
@@ -78,13 +81,14 @@ export function shippingOptions(rates: RateRow[], zone: Zone, weightG: number, s
 
 export function allowedPayments(zone: Zone): PaymentMethod[] {
   // Cash on delivery only exists inside Pakistan.
-  return zone === "international" ? ["bank_transfer", "card"] : ["cod", "bank_transfer", "card"];
+  // JazzCash and Easypaisa are Pakistani wallets; Safepay is the one offered for cards from abroad.
+  return zone === "international" ? ["bank_transfer", "safepay"] : ["cod", "bank_transfer", "safepay", "jazzcash", "easypaisa"];
 }
 
 export function orderTotals(subtotal: number, shippingFee: number, method: PaymentMethod, s: FeeSettings) {
   const codFee = method === "cod" ? s.cod_fee : 0;
-  // Gateway fee only applies to online card payments, charged on goods + delivery.
-  const gatewayFee = method === "card" ? Math.ceil(((subtotal + shippingFee) * s.gateway_fee_pct) / 100) : 0;
+  // Gateway fee only applies to online payments, charged on goods + delivery.
+  const gatewayFee = isOnline(method) ? Math.ceil(((subtotal + shippingFee) * s.gateway_fee_pct) / 100) : 0;
   return { codFee, gatewayFee, total: subtotal + shippingFee + codFee + gatewayFee };
 }
 

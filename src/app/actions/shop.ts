@@ -1,11 +1,14 @@
 "use server";
 
+import { isLang, type Lang } from "@/lib/i18n";
 import { loadCart, loadRates, newOrderNumber } from "@/lib/orders";
+import { configuredOnline, startPayment, type StartResult } from "@/lib/payments";
+import { SITE_URL } from "@/lib/site";
 import { notifyNewOrder } from "@/lib/notify";
 import { tooMany } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import {
-  COUNTRIES, allowedPayments, orderTotals, shippingOptions, zoneFor,
+  COUNTRIES, allowedPayments, isOnline, orderTotals, shippingOptions, zoneFor,
   type Courier, type PaymentMethod, type ShippingOption,
 } from "@/lib/shipping";
 import { getDb } from "@/lib/supabase";
@@ -28,9 +31,10 @@ export async function getQuote(items: unknown, country: string, city: string): P
   const [rates, s] = await Promise.all([loadRates(cart.demo), getSettings()]);
   const zone = zoneFor(country, city);
   const options = shippingOptions(rates, zone, cart.weightG, s);
+  const online = configuredOnline();
   return {
     options,
-    payments: allowedPayments(zone),
+    payments: allowedPayments(zone).filter((m) => !isOnline(m) || online.includes(m)),
     fees: { cod_fee: s.cod_fee, gateway_fee_pct: s.gateway_fee_pct },
     subtotal: cart.subtotal,
     demo: cart.demo,
@@ -40,7 +44,7 @@ export async function getQuote(items: unknown, country: string, city: string): P
 
 export type PlaceResult =
   | { ok: false; error: string }
-  | { ok: true; number: string; total: number; payment: PaymentMethod; demo: boolean; bankDetails: string; eta: string };
+  | { ok: true; number: string; total: number; payment: PaymentMethod; demo: boolean; bankDetails: string; eta: string; pay?: StartResult };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -54,7 +58,7 @@ function phoneFor(country: string, raw: string): string | null {
 export async function placeOrder(input: {
   items: unknown;
   name: string; email: string; phone: string; country: string; city: string; address: string; postal: string; note: string;
-  courier: string; payment: string;
+  courier: string; payment: string; lang?: string;
 }): Promise<PlaceResult> {
   if (await tooMany("order", 8, 10 * 60_000)) return { ok: false, error: "Too many attempts. Please wait a few minutes." };
 
@@ -84,7 +88,8 @@ export async function placeOrder(input: {
   if (!option) return { ok: false, error: "That delivery option is not available for your address. Please choose another." };
   const payment = input.payment as PaymentMethod;
   if (!allowedPayments(zone).includes(payment)) return { ok: false, error: "That payment method is not available for your address." };
-  if (payment === "card") return { ok: false, error: "Card payments are coming soon. Please choose another payment method." };
+  const lang: Lang = isLang(String(input.lang ?? "")) ? (input.lang as Lang) : "en";
+  if (isOnline(payment) && !configuredOnline().includes(payment)) return { ok: false, error: "That payment method is not available right now. Please choose another." };
 
   const t = orderTotals(cart.subtotal, option.fee, payment, s);
   const eta = `${option.etaMin}–${option.etaMax} working days`;
@@ -105,7 +110,7 @@ export async function placeOrder(input: {
       .from("orders")
       .insert({
         number, status: "pending", customer_name: name, email, phone, country, city, address,
-        postal_code: postal || null, courier: option.courier, payment_method: payment, payment_status: "unpaid",
+        postal_code: postal || null, courier: option.courier, payment_method: payment, payment_status: isOnline(payment) ? "awaiting_payment" : "unpaid",
         subtotal: cart.subtotal, shipping_fee: option.fee, gateway_fee: t.gatewayFee, cod_fee: t.codFee, total: t.total,
         shipping_eta: eta, customer_note: note, weight_g: cart.weightG,
       })
@@ -125,6 +130,22 @@ export async function placeOrder(input: {
   if (ie) {
     await db.from("orders").delete().eq("id", orderId); // don't leave an order with no items
     return { ok: false, error: "Could not save your order. Please try again." };
+  }
+
+  // Online payment: no alerts until the money is confirmed (see settlePayment). Send the customer to the gateway.
+  if (isOnline(payment)) {
+    try {
+      const pay = await startPayment(payment, orderId, {
+        orderNumber: number, amount: t.total, email, phone, name,
+        returnUrl: `${SITE_URL}/api/pay/${payment}/return?lang=${lang}`,
+        cancelUrl: `${SITE_URL}/api/pay/${payment}/return?lang=${lang}&cancel=1`,
+      });
+      return { ok: true, number, total: t.total, payment, demo: false, bankDetails: s.bank_details, eta, pay };
+    } catch (e) {
+      console.error("[pay] start failed", e);
+      await db.from("orders").delete().eq("id", orderId); // nothing was charged; don't leave a dead order
+      return { ok: false, error: "We couldn't start the online payment. Please try again or choose another payment method." };
+    }
   }
 
   const itemsText = cart.lines.map((l) => `${l.qty} x ${l.name}${l.size ? ` (${l.size})` : ""}${l.color ? ` ${l.color}` : ""} - PKR ${(l.sellPrice * l.qty).toLocaleString("en-PK")}`).join("\n");

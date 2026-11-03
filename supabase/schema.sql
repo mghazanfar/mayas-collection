@@ -161,3 +161,22 @@ insert into settings (key, value) values
   ('bank_details', '""'),
   ('international_handling', '200')
 on conflict (key) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Online payments (Safepay / JazzCash / Easypaisa)
+-- ---------------------------------------------------------------------------
+-- One row per payment attempt. `reference` is what the gateway sends back (tracker /
+-- transaction ref) and is how a return is matched to an order.
+create table if not exists payments (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references orders(id) on delete cascade,
+  provider text not null check (provider in ('safepay','jazzcash','easypaisa')),
+  reference text not null,
+  amount int not null,
+  status text not null default 'started' check (status in ('started','paid','failed','review')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (provider, reference)
+);
+create index if not exists payments_order_idx on payments(order_id);
+alter table payments enable row level security;
