@@ -13,6 +13,10 @@ export default async function PanelLayout({ children }: { children: React.ReactN
           <nav className="flex gap-5 text-sm font-medium">
             <Link href="/admin" className="font-bold text-rose-700">Maya&apos;s Admin</Link>
             <Link href="/admin/brands">Brands</Link>
+            <Link href="/admin/products">Products</Link>
+            <Link href="/admin/orders">Orders</Link>
+            <Link href="/admin/returns">Returns</Link>
+            <Link href="/admin/shipping">Shipping</Link>
             <Link href="/admin/settings">Settings</Link>
           </nav>
           <form action={logoutAction}>

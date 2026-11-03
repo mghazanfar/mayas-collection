@@ -2,6 +2,7 @@ import "server-only";
 import { getDb } from "./supabase";
 
 export type Settings = {
+  announcement: string;
   owner_email: string;
   owner_whatsapp: string;
   ntn: string;
@@ -10,9 +11,12 @@ export type Settings = {
   lahore_handling: number;
   other_city_handling: number;
   gateway_fee_pct: number;
+  international_handling: number;
+  bank_details: string;
 };
 
 export const SETTING_DEFAULTS: Settings = {
+  announcement: "",
   owner_email: "",
   owner_whatsapp: "",
   ntn: "",
@@ -21,6 +25,8 @@ export const SETTING_DEFAULTS: Settings = {
   lahore_handling: 100,
   other_city_handling: 200,
   gateway_fee_pct: 0,
+  international_handling: 200,
+  bank_details: "",
 };
 
 export async function getSettings(): Promise<Settings> {
@@ -31,4 +37,13 @@ export async function getSettings(): Promise<Settings> {
   const out: Record<string, unknown> = { ...SETTING_DEFAULTS };
   for (const row of data ?? []) if (row.key in SETTING_DEFAULTS) out[row.key] = row.value;
   return out as Settings;
+}
+
+// Never throws: a settings hiccup must not take the whole storefront down.
+export async function getAnnouncement(): Promise<string> {
+  try {
+    return (await getSettings()).announcement ?? "";
+  } catch {
+    return "";
+  }
 }

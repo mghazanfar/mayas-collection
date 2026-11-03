@@ -129,3 +129,35 @@ insert into settings (key, value) values
   ('other_city_handling', '200'),
   ('gateway_fee_pct', '0')
 on conflict (key) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Storefront upgrade (safe to re-run the whole file; everything is idempotent)
+-- ---------------------------------------------------------------------------
+alter table products add column if not exists compare_price int;                       -- original price when on sale
+alter table products add column if not exists fabric text not null default '';
+alter table products add column if not exists details text not null default '';        -- "Product details & composition"
+alter table products add column if not exists model_info text not null default '';     -- "Model is wearing size M, height 5'7"
+alter table products add column if not exists sold_out_sizes text[] not null default '{}'; -- sizes shown but disabled
+alter table products add column if not exists color_images jsonb not null default '{}'::jsonb; -- {"Mint": 1} = gallery index to show
+
+insert into settings (key, value) values
+  ('announcement', '"Worldwide delivery from Pakistan. Free returns assessment on valid claims."')
+on conflict (key) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Checkout, shipping and orders
+-- ---------------------------------------------------------------------------
+-- Rates are entered by the owner from the courier price lists. Only rows with
+-- verified = true are used for real orders.
+alter table shipping_rates add column if not exists verified boolean not null default false;
+alter table shipping_rates add column if not exists service text not null default '';
+
+alter table orders add column if not exists shipping_eta text not null default '';
+alter table orders add column if not exists customer_note text not null default '';
+alter table orders add column if not exists admin_note text not null default '';
+alter table orders add column if not exists weight_g int not null default 0;
+
+insert into settings (key, value) values
+  ('bank_details', '""'),
+  ('international_handling', '200')
+on conflict (key) do nothing;

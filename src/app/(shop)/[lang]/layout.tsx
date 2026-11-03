@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Noto_Nastaliq_Urdu } from "next/font/google";
 import { notFound } from "next/navigation";
+import CartDrawer from "@/components/CartDrawer";
+import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import { CartProvider } from "@/lib/cart";
+import { getAnnouncement } from "@/lib/settings";
 import { isLiveCatalogEmpty } from "@/lib/catalog";
 import { DIR, HTML_LANG, LANGS, isLang } from "@/lib/i18n";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
@@ -33,7 +37,7 @@ export default async function RootLayout({
 }) {
   const { lang } = await params;
   if (!isLang(lang)) notFound();
-  const liveEmpty = await isLiveCatalogEmpty();
+  const [liveEmpty, announcement] = await Promise.all([isLiveCatalogEmpty(), getAnnouncement()]);
 
   return (
     <html
@@ -42,11 +46,12 @@ export default async function RootLayout({
       className={`${geist.variable} ${nastaliq.variable} ${lang === "ur" ? "font-urdu" : ""}`}
     >
       <body className="min-h-screen bg-white text-neutral-900 antialiased">
-        <Header lang={lang} liveEmpty={liveEmpty} />
-        <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-        <footer className="mt-16 border-t border-neutral-200 py-8 text-center text-sm text-neutral-500">
-          © {new Date().getFullYear()} {SITE_NAME}
-        </footer>
+        <CartProvider>
+          <Header lang={lang} liveEmpty={liveEmpty} announcement={announcement} />
+          <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+          <Footer lang={lang} />
+          <CartDrawer lang={lang} />
+        </CartProvider>
       </body>
     </html>
   );

@@ -11,6 +11,14 @@ export default async function SettingsAdmin() {
       <h1 className="mb-6 text-2xl font-bold">Settings</h1>
       <ActionForm action={saveSettings} submitLabel="Save settings" className="max-w-2xl space-y-6">
         <section className="space-y-3 rounded-lg border border-neutral-200 bg-white p-5">
+          <h2 className="font-semibold">Storefront</h2>
+          <label className="block text-sm">
+            Announcement bar text (top of every page; leave empty to hide)
+            <input name="announcement" defaultValue={s.announcement} maxLength={200} className={input} />
+          </label>
+        </section>
+
+        <section className="space-y-3 rounded-lg border border-neutral-200 bg-white p-5">
           <h2 className="font-semibold">Owner notifications</h2>
           <label className="block text-sm">
             Owner email (new-order alerts)
@@ -35,6 +43,12 @@ export default async function SettingsAdmin() {
         </section>
 
         <section className="space-y-3 rounded-lg border border-neutral-200 bg-white p-5">
+          <h2 className="font-semibold">Bank transfer details</h2>
+          <p className="text-xs text-neutral-500">Shown to customers who choose bank transfer (useful for overseas orders until card payments are live). Include account title, bank, IBAN/SWIFT.</p>
+          <textarea name="bank_details" defaultValue={s.bank_details} rows={4} className={input} />
+        </section>
+
+        <section className="space-y-3 rounded-lg border border-neutral-200 bg-white p-5">
           <h2 className="font-semibold">Fees (PKR)</h2>
           <p className="text-xs text-neutral-500">
             Handling is added on top of the courier charge: Lahore orders use the Lahore amount, every other Pakistani city the other-city amount.
@@ -47,6 +61,10 @@ export default async function SettingsAdmin() {
             <label className="text-sm">
               Other-city handling
               <input name="other_city_handling" type="number" min={0} defaultValue={s.other_city_handling} className={input} />
+            </label>
+            <label className="text-sm">
+              International handling
+              <input name="international_handling" type="number" min={0} defaultValue={s.international_handling} className={input} />
             </label>
             <label className="text-sm">
               Cash on delivery fee

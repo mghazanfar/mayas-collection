@@ -1,13 +1,18 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
-import { getProduct } from "@/lib/catalog";
-import { href, t, type Lang } from "@/lib/i18n";
-import { SITE_URL, pkr } from "@/lib/site";
+import Breadcrumbs from "@/components/Breadcrumbs";
+import ProductCard from "@/components/ProductCard";
+import ProductDetail from "@/components/ProductDetail";
+import { getProduct, getProducts } from "@/lib/catalog";
+import { href, type Lang } from "@/lib/i18n";
+import { ts } from "@/lib/i18n-shop";
+import { isPurchasable } from "@/lib/product-types";
+import { SITE_URL } from "@/lib/site";
 
 export default async function ProductView({ lang, slug, demo }: { lang: Lang; slug: string; demo: boolean }) {
   const p = await getProduct(slug, demo);
   if (!p) notFound();
-  const d = t[lang];
+  const d = ts[lang];
+  const related = (await getProducts({ brandId: p.brandId, demo })).filter((x) => x.id !== p.id).slice(0, 4);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -15,17 +20,18 @@ export default async function ProductView({ lang, slug, demo }: { lang: Lang; sl
     name: p.name,
     description: p.description,
     image: p.images,
+    brand: { "@type": "Brand", name: p.brandName },
     offers: {
       "@type": "Offer",
       url: `${SITE_URL}${href("en", `/products/${p.slug}`)}`,
       priceCurrency: "PKR",
       price: p.sellPrice,
-      availability: p.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      availability: isPurchasable(p) ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
     },
   };
 
   return (
-    <div className="grid gap-8 md:grid-cols-2">
+    <>
       {!demo && (
         <script
           type="application/ld+json"
@@ -33,32 +39,22 @@ export default async function ProductView({ lang, slug, demo }: { lang: Lang; sl
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
         />
       )}
-      <div className="grid gap-3">
-        {p.images.length === 0 && <div className="aspect-[3/4] rounded-lg bg-gradient-to-br from-rose-100 to-amber-50" />}
-        {p.images.map((src, i) => (
-          <div key={src} className="relative aspect-[3/4] overflow-hidden rounded-lg">
-            <Image src={src} alt={`${p.name} ${i + 1}`} fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" priority={i === 0} />
+      <Breadcrumbs
+        items={[
+          { label: d.home, to: href(lang, "/", demo) },
+          { label: p.brandName, to: href(lang, `/brands/${p.brandSlug}`, demo) },
+          { label: p.name },
+        ]}
+      />
+      <ProductDetail product={p} lang={lang} demo={demo} />
+      {related.length > 0 && (
+        <section className="mt-16">
+          <h2 className="mb-4 text-xl font-semibold">{d.youMayAlsoLike}</h2>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-4">
+            {related.map((r) => <ProductCard key={r.id} product={r} lang={lang} demo={demo} />)}
           </div>
-        ))}
-      </div>
-      <div>
-        <h1 className="text-2xl font-bold">{p.name}</h1>
-        <p className="mt-2 text-xl text-rose-700">{pkr(p.sellPrice)}</p>
-        {p.kind === "unstitched" && <p className="mt-2 text-sm text-neutral-600">{d.unstitched}</p>}
-        {p.sizes.length > 0 && (
-          <p className="mt-4 text-sm">
-            <strong>{d.size}:</strong> {p.sizes.join(", ")}
-          </p>
-        )}
-        {p.colors.length > 0 && (
-          <p className="mt-2 text-sm">
-            <strong>{d.color}:</strong> {p.colors.join(", ")}
-          </p>
-        )}
-        <p className="mt-6 whitespace-pre-line text-neutral-700">{p.description}</p>
-        {/* Cart button comes with the cart milestone. */}
-        <p className="mt-6 text-sm text-neutral-500">{p.inStock ? "" : d.outOfStock}</p>
-      </div>
-    </div>
+        </section>
+      )}
+    </>
   );
 }
